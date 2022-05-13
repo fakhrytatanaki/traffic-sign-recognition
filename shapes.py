@@ -6,6 +6,17 @@ import json
 
 vecNorm = lambda x,y=0:np.sqrt(np.sum((x-y)**2))
 
+def subdivide(polygonPoints,divisions):
+    n=polygonPoints.shape[0]
+    res = np.zeros(shape=(n*divisions,polygonPoints.shape[1]),dtype=polygonPoints.dtype)
+
+    for i in range(n):
+        diff = polygonPoints[(i+1)%n]-polygonPoints[i]
+        for j in range(divisions):
+            res[i*divisions + j] = polygonPoints[i] + (diff/divisions)*j
+
+    return res
+    
 def generateRegularPolygonInt(nsides,angleOffset=0,r=300):
     #generates integer coordinates of a regular polygon with a given side length (r)
     #nsides : number of sides
@@ -36,8 +47,7 @@ def getShapes():
             'triangle' : generateRegularPolygonInt(3,-np.pi/6),
             'circle' : generateRegularPolygonInt(720),
             'square' : generateRegularPolygonInt(4,np.pi/4),
-            'octagon' : generateRegularPolygonInt(8,np.pi/8),
-            'rhombus' : generateRegularPolygonInt(4),
+            'octagon' : subdivide(generateRegularPolygonInt(8,np.pi/8),10)
             }
 
     return shapes
@@ -63,5 +73,5 @@ def getShapePattern(coords,divisions):
     return sPattern[:divisions]
 
 
-shapes = getShapes()
+
 
