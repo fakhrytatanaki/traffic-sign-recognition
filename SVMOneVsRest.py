@@ -51,6 +51,7 @@ class SVMOneVsRest:
         self.labelSet = [f for f in os.listdir(datasetDirectory) if not f.startswith('.')]
 
         print("[One-vs-Rest Classifier] loading datsets... ")
+        print("this might take a while....")
 
         for l in self.labelSet: #for every class
             svmModel = cv.ml.SVM_create()
@@ -67,7 +68,6 @@ class SVMOneVsRest:
 
             for nl in self.labelSet:
                 if l!=nl:
-                    print(os.path.join(datasetDirectory,nl,'*.png'))
                     isNotClassData,isNotClassLabel = loadTrainingData(glob(os.path.join(datasetDirectory,nl,'*.png')), -1) #anything other than class (l) is labeled as -1
                     allData.append(isNotClassData)
                     allLabels.append(isNotClassLabel)
@@ -78,6 +78,10 @@ class SVMOneVsRest:
             svmModel.train(dataTrain,cv.ml.ROW_SAMPLE, labelTrain)
 
             self.models.append(svmModel)
+
+            print(f"model for [ {l} ] is ready")
+
+        print("all models are ready")
 
     def saveModels(self,dirname):
           for i,m in enumerate(self.models):
@@ -94,14 +98,21 @@ class SVMOneVsRest:
         modelOutputs = np.zeros((len(self.models),len(imageSet)))
 
         for i,m in enumerate(self.models):
-            p = m.predict(modelReady)[1].flatten()
+            _p = m.predict(modelReady,cv.ml.StatModel_RAW_OUTPUT)
+            p = _p[1].flatten()
             modelOutputs[i,:] = p
 
 
         result = []
         
         for out in modelOutputs.T:
-            result.append(self.labelSet[np.nanargmax(out)])
+
+            r = np.nanargmax(out)
+
+            if out[r] < 0:
+                result.append(None)
+            else:
+                result.append(self.labelSet[r])
 
         return result
 
