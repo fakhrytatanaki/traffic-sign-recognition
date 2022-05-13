@@ -1,10 +1,15 @@
 import numpy as np
 import cv2 as cv
 from glob import glob
+import matplotlib.pyplot as plt
+
+IMAGE_DATA_DIMENSIONS=(512,512)
 
 def loadTrainingData(imageFiles,label):
+
     trainingData = [cv.cvtColor(cv.imread(f),cv.COLOR_BGR2GRAY) for f in imageFiles]
-    trainingData =np.matrix([np.array(cv.resize(img,(512,512)).flatten(),dtype=np.float32) for img in trainingData],dtype=np.float32)
+
+    trainingData =np.matrix([np.array(cv.resize(img,IMAGE_DATA_DIMENSIONS).flatten(),dtype=np.float32) for img in trainingData],dtype=np.float32)
     labels = np.zeros(len(trainingData),dtype=np.int32)
     labels[:] = label
     return trainingData,labels
@@ -16,6 +21,26 @@ def trainTestSplit(data,percentageTrain):
 
 
 
+def shuffleData(data,labels):
+    toShuffle = np.concatenate((data,labels.reshape(-1,1)),axis=1) 
+    np.random.shuffle(toShuffle)
+    data_shuffled = np.array(toShuffle[:,:-1],dtype=np.float32)
+    label_shuffled = np.array(toShuffle[:,-1],dtype=np.int32)
+    return data_shuffled,label_shuffled
+
+def calcAccuracy(yTest,yReal):
+    assert(len(yTest)==len(yReal))
+
+    correct = 0
+    total = len(yReal)
+    for i in range(total):
+        if yTest[i]==yReal[i]:
+            correct+=1
+
+    return 100*correct/total
+
+
+
 
 
 stopData,stopLabels = loadTrainingData(glob('./dataset/stop/*.png'),1) 
@@ -24,6 +49,7 @@ notStopData,notStopLabels = loadTrainingData(glob('./dataset/[!stop]*/*.png'),-1
 data = np.concatenate((stopData,notStopData))
 labels = np.concatenate((stopLabels,notStopLabels))
 
+data,labels = shuffleData(data, labels)
 
 dataTrain,dataTest = trainTestSplit(data, 80)
 labelTrain,labelTest = trainTestSplit(labels, 80)
@@ -38,3 +64,16 @@ svmModel.setTermCriteria((cv.TERM_CRITERIA_MAX_ITER, 100, 1e-6))
 svmModel.train(dataTrain,cv.ml.ROW_SAMPLE, labelTrain)
 
 
+
+
+ret,result = svmModel.predict(dataTest)
+print(calcAccuracy(result, labelTest))
+
+
+
+
+
+
+# for d,i in enumerate(dataTest):
+#     y = svmModel.predict(d)[1]
+#     print(labelTest[i],y)
