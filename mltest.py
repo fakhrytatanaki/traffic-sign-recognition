@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 IMAGE_DATA_DIMENSIONS=(512,512)
 
 def loadTrainingData(imageFiles,label):
+    #loads a training data that belongs to one class
 
     trainingData = [cv.cvtColor(cv.imread(f),cv.COLOR_BGR2GRAY) for f in imageFiles]
 
@@ -21,11 +22,11 @@ def trainTestSplit(data,percentageTrain):
 
 
 
-def shuffleData(data,labels):
+def shuffleData(data,labels,labelType=np.int32):
     toShuffle = np.concatenate((data,labels.reshape(-1,1)),axis=1) 
     np.random.shuffle(toShuffle)
     data_shuffled = np.array(toShuffle[:,:-1],dtype=np.float32)
-    label_shuffled = np.array(toShuffle[:,-1],dtype=np.int32)
+    label_shuffled = np.array(toShuffle[:,-1],dtype=labelType)
     return data_shuffled,label_shuffled
 
 def calcAccuracy(yTest,yReal):
@@ -36,6 +37,7 @@ def calcAccuracy(yTest,yReal):
     for i in range(total):
         if yTest[i]==yReal[i]:
             correct+=1
+
 
     return 100*correct/total
 
@@ -51,8 +53,8 @@ labels = np.concatenate((stopLabels,notStopLabels))
 
 data,labels = shuffleData(data, labels)
 
-dataTrain,dataTest = trainTestSplit(data, 80)
-labelTrain,labelTest = trainTestSplit(labels, 80)
+dataTrain,dataTest = trainTestSplit(data, 30)
+labelTrain,labelTest = trainTestSplit(labels, 30)
 
 
 svmModel = cv.ml.SVM_create()
