@@ -4,7 +4,8 @@ import cv2 as cv
 import matplotlib.pyplot as plt
 import shapes as s
 from glob import glob
-from SVMOneVsRest import SVMOneVsRest
+from mltools import SVMOneVsRest,NeuralNetworkModel
+
 
 def normalize(arr):
     vmin = np.min(arr)
@@ -43,8 +44,11 @@ G_SHAPES_DETECT_ERR_MAX = 0.1
 
 G_POLY_APPROX_ERR = 0.0005
 
-SVMOneVsRestModel = SVMOneVsRest()
-SVMOneVsRestModel.loadDataset('small_dataset') #it might take a while to load the big dataset, for testing purposes, we choose 'small_dataset for not'
+# SVMOneVsRestModel = SVMOneVsRest()
+# SVMOneVsRestModel.loadDataset('small_dataset') #it might take a while to load the big dataset, for testing purposes, we choose 'small_dataset for not'
+
+nnm  = NeuralNetworkModel('./dataset')
+
 
 # AvgHists = histogramAvg('small_dataset')
 
@@ -147,7 +151,8 @@ def machineLearningPredicitonRoutine(imgIn,boundingRects):
     for x,y,w,h in boundingRects:
         imageCrops.append(imgIn[y:y+h,x:x+w])
 
-    predictedLabels = SVMOneVsRestModel.predict(imageCrops)
+    #predictedLabels = SVMOneVsRestModel.predict(imageCrops)
+    predictedLabels = nnm.predict(imageCrops)
 
     return predictedLabels
 

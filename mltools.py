@@ -2,15 +2,25 @@ import numpy as np
 import cv2 as cv
 import os
 from glob import glob
+from sys import getsizeof
 import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.losses import MeanSquaredError,CategoricalCrossentropy 
+from tensorflow.keras import layers
 
-IMAGE_DATA_DIMENSIONS=(512,512)
+IMAGE_DATA_DIMENSIONS=(128,128)
+
+def imageTransformer(img):
+    return np.array(cv.resize(img,IMAGE_DATA_DIMENSIONS),dtype=np.float32)
+
 
 def loadTrainingData(imageFiles,label):
     #loads a training data that belongs to one class
 
-    trainingData = [cv.cvtColor(cv.imread(f),cv.COLOR_BGR2GRAY) for f in imageFiles]
-    trainingData =np.matrix([np.array(cv.resize(img,IMAGE_DATA_DIMENSIONS).flatten(),dtype=np.float32) for img in trainingData],dtype=np.float32)
+    trainingData = [cv.imread(f) for f in imageFiles]
+    #trainingData =np.matrix([np.array(cv.resize(img,IMAGE_DATA_DIMENSIONS).flatten(),dtype=np.float32) for img in trainingData],dtype=np.float32)
+    trainingData = np.array([ imageTransformer(img) for img in trainingData],dtype=np.float32)
+
     labels = np.zeros(len(trainingData),dtype=np.int32)
     labels[:] = label
     return trainingData,labels
@@ -23,9 +33,10 @@ def trainTestSplit(data,percentageTrain):
 
 
 def shuffleData(data,labels,labelType=np.int32):
-    toShuffle = np.concatenate((data,labels.reshape(-1,1)),axis=1) 
+    dim = data.shape
+    toShuffle = np.concatenate((data.reshape(len(labels),-1),labels.reshape(-1,1)),axis=1) 
     np.random.shuffle(toShuffle)
-    data_shuffled = np.array(toShuffle[:,:-1],dtype=np.float32)
+    data_shuffled = np.array(toShuffle[:,:-1],dtype=np.float32).reshape(dim)
     label_shuffled = np.array(toShuffle[:,-1],dtype=labelType)
     return data_shuffled,label_shuffled
 
@@ -40,6 +51,67 @@ def calcAccuracy(yTest,yReal):
 
 
     return 100*correct/total
+
+class NeuralNetworkModel():
+    def __init__(self,datasetDirectory):
+        self.inputShape = (IMAGE_DATA_DIMENSIONS + (3,))
+        self.labelSet = [f for f in os.listdir(datasetDirectory) if not f.startswith('.')]
+
+        x_train = np.zeros(shape=((0,)+self.inputShape),dtype=np.float32)
+        y_train = np.zeros(0,dtype=np.float32)
+
+        for i,l in enumerate(self.labelSet):
+            classData,classLabel = loadTrainingData(glob(os.path.join(datasetDirectory,l,'./*.png')), i)
+            x_train = np.concatenate((x_train,classData))
+            y_train = np.concatenate((y_train,classLabel))
+
+        print(x_train.shape)
+        print(y_train.shape)
+        x_train,y_train = shuffleData(np.array(x_train), np.array(y_train))
+        x_train = tf.keras.utils.normalize(x_train)
+
+        # print(self.labelSet[y_train[30]])
+        # plt.imshow(x_train[30].reshape(IMAGE_DATA_DIMENSIONS + (3,)))
+        # plt.show()
+
+
+        y_train_ohe = tf.one_hot(y_train,depth=len(self.labelSet))
+
+        self.model = tf.keras.models.Sequential([
+                layers.Conv2D(128, (3, 3), activation='relu', input_shape=self.inputShape),
+                layers.MaxPooling2D((2, 2)),
+                layers.Conv2D(64, (3, 3), activation='relu'),
+                layers.MaxPooling2D((2, 2)),
+                layers.Conv2D(32, (3, 3), activation='relu'),
+                tf.keras.layers.Flatten(),
+                tf.keras.layers.Dense(32,activation='sigmoid'),
+                tf.keras.layers.Dense(16,activation='sigmoid'),
+                tf.keras.layers.Dense(len(self.labelSet),activation='sigmoid'),
+                ]
+                )
+
+        self.model.compile(
+                optimizer = tf.keras.optimizers.Adam(
+                learning_rate=0.001),
+              loss=CategoricalCrossentropy(),
+              metrics=['accuracy']
+              )
+
+        #print('ready dataset size : ',getsizeof(x_train))
+        self.model.fit(x_train,y_train_ohe,epochs=50)
+
+    def predict(self,imageSet):
+        # imageSetGrayScale = [cv.cvtColor(img,cv.COLOR_BGR2GRAY) for img in imageSet]
+        modelReady = np.array([imageTransformer(img) for img in imageSet],dtype=np.float32)
+        modelReady = tf.keras.utils.normalize(modelReady)
+        pred = self.model.predict(modelReady)
+        return [self.labelSet[i] for i in np.argmax(pred,axis=1)]
+        
+
+
+
+
+
 
 
 
