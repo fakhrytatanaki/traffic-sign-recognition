@@ -1,3 +1,9 @@
+"""One-vs-rest SVM training and inference utilities built on OpenCV ML.
+
+This module provides helpers to load image data into flattened grayscale
+feature vectors and a simple `SVMOneVsRest` class that wraps a set of
+binary linear SVMs (one per class) to enable multi-class classification.
+"""
 import numpy as np
 import cv2 as cv
 import os
@@ -7,8 +13,17 @@ import matplotlib.pyplot as plt
 IMAGE_DATA_DIMENSIONS=(512,512)
 
 def loadTrainingData(imageFiles,label):
-    #loads a training data that belongs to one class
+    """Load grayscale, resized images and return flattened samples with labels.
 
+    Parameters:
+        imageFiles: Iterable of file paths to input images.
+        label: Integer label to assign to all images (e.g., 1 or -1).
+
+    Returns:
+        trainingData: numpy.matrix of shape (N, 512*512) with dtype float32
+        labels: numpy.ndarray of shape (N,) with dtype int32
+    """
+    # loads a training data that belongs to one class
     trainingData = [cv.cvtColor(cv.imread(f),cv.COLOR_BGR2GRAY) for f in imageFiles]
     trainingData =np.matrix([np.array(cv.resize(img,IMAGE_DATA_DIMENSIONS).flatten(),dtype=np.float32) for img in trainingData],dtype=np.float32)
     labels = np.zeros(len(trainingData),dtype=np.int32)
@@ -16,6 +31,15 @@ def loadTrainingData(imageFiles,label):
     return trainingData,labels
 
 def trainTestSplit(data,percentageTrain):
+    """Split an array into train and test portions by percentage.
+
+    Parameters:
+        data: Sequence or numpy array to split.
+        percentageTrain: Percentage (0-100) to allocate to the train set.
+
+    Returns:
+        (train, test) copies of the data split.
+    """
     n = len(data)
     nTrain = int(n*(percentageTrain/100))
     return np.copy(data[:nTrain]), np.copy(data[nTrain:n])
@@ -23,6 +47,16 @@ def trainTestSplit(data,percentageTrain):
 
 
 def shuffleData(data,labels,labelType=np.int32):
+    """Randomly shuffle data and labels in unison and return shuffled copies.
+
+    Parameters:
+        data: 2D array-like of samples.
+        labels: 1D array-like of integer labels.
+        labelType: numpy dtype for returned labels.
+
+    Returns:
+        (data_shuffled, label_shuffled)
+    """
     toShuffle = np.concatenate((data,labels.reshape(-1,1)),axis=1) 
     np.random.shuffle(toShuffle)
     data_shuffled = np.array(toShuffle[:,:-1],dtype=np.float32)
@@ -30,6 +64,15 @@ def shuffleData(data,labels,labelType=np.int32):
     return data_shuffled,label_shuffled
 
 def calcAccuracy(yTest,yReal):
+    """Compute accuracy in percent between predicted and true labels.
+
+    Parameters:
+        yTest: 1D array-like of predicted labels.
+        yReal: 1D array-like of ground-truth labels.
+
+    Returns:
+        Accuracy as a float percentage in [0, 100].
+    """
     assert(len(yTest)==len(yReal))
 
     correct = 0
@@ -44,8 +87,14 @@ def calcAccuracy(yTest,yReal):
 
 
 class SVMOneVsRest:
-    #One Vs Rest Classifier 
+    """One-vs-rest multi-class classifier using a bank of linear SVMs."""
     def loadDataset(self,datasetDirectory):
+        """Train one binary SVM per class using one-vs-rest labeling.
+
+        Each subdirectory inside `datasetDirectory` is treated as a class name
+        and should contain `.png` images. For a given class C, images from C
+        are labeled +1 and all other class images are labeled -1.
+        """
 
         self.models = []
         self.labelSet = [f for f in os.listdir(datasetDirectory) if not f.startswith('.')]
@@ -84,6 +133,7 @@ class SVMOneVsRest:
         print("all models are ready")
 
     def saveModels(self,dirname):
+          """Save each trained SVM model as an XML file in `dirname`."""
           for i,m in enumerate(self.models):
               m.save(os.path.join(dirname,f"{i}.{self.labelSet[i]}.xml"))
 
@@ -91,6 +141,14 @@ class SVMOneVsRest:
 
 
     def predict(self,imageSet):
+        """Predict labels for a list of BGR images.
+
+        Parameters:
+            imageSet: List of color images (BGR) as numpy arrays.
+
+        Returns:
+            List of predicted class names or None if all raw margins < 0.
+        """
 
         imageSetGrayScale = [cv.cvtColor(img,cv.COLOR_BGR2GRAY) for img in imageSet]
         modelReady = np.matrix([np.array(cv.resize(img,IMAGE_DATA_DIMENSIONS).flatten(),dtype=np.float32) for img in imageSetGrayScale],dtype=np.float32)
@@ -98,6 +156,7 @@ class SVMOneVsRest:
         modelOutputs = np.zeros((len(self.models),len(imageSet)))
 
         for i,m in enumerate(self.models):
+            # Use raw decision function outputs (margins) for one-vs-rest
             _p = m.predict(modelReady,cv.ml.StatModel_RAW_OUTPUT)
             p = _p[1].flatten()
             modelOutputs[i,:] = p
@@ -109,6 +168,7 @@ class SVMOneVsRest:
 
             r = np.nanargmax(out)
 
+            # If the highest margin is negative, reject as no confident class
             if out[r] < 0:
                 result.append(None)
             else:
