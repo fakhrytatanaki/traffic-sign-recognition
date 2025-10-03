@@ -1,3 +1,11 @@
+"""Webcam demo for traffic sign detection and classification.
+
+Pipeline:
+- Edge detection (Canny) and contour extraction
+- Shape matching against canonical templates to propose regions of interest
+- One-vs-rest SVM classification of cropped regions
+- Visualization with bounding boxes and labels
+"""
 import numpy as np
 import os
 import cv2 as cv
@@ -7,12 +15,20 @@ from glob import glob
 from SVMOneVsRest import SVMOneVsRest
 
 def normalize(arr):
+    """Normalize an array to [0, 1] range based on its min/max.
+
+    Note: denominator uses (vmin - vmax) consistent with existing code.
+    """
     vmin = np.min(arr)
     vmax = np.max(arr)
 
     return (arr-vmin)/(vmin-vmax)
 
 def histogramAvg(datasetDirectory):
+        """Compute average grayscale histograms per label directory.
+
+        Returns a list of normalized 256-bin histograms (one per label).
+        """
         imagesByLabel = []
         labelSet = [f for f in os.listdir(datasetDirectory) if not f.startswith('.')]
 
@@ -53,6 +69,10 @@ SVMOneVsRestModel.loadDataset('small_dataset') #it might take a while to load th
 
 
 def detectMatchingShapes(contours,shapes,epsilon):
+    """Match contours to canonical shapes using cv.matchShapes.
+
+    Returns a list of detected shape labels or 'unknown' if error > epsilon.
+    """
     labels = list(shapes.keys())
     shapePoints = list(shapes.values())
 
@@ -75,6 +95,10 @@ def detectMatchingShapes(contours,shapes,epsilon):
 
         
 def similarHistRoutine(imgIn,boundingRects,avgHists,histErr):
+        """Filter bounding rects by comparing histogram to class averages.
+
+        Keeps rects whose min L1 error to any average histogram is < histErr.
+        """
 
         filteredBoundingRects = []
         minerrs = []
@@ -100,6 +124,7 @@ def similarHistRoutine(imgIn,boundingRects,avgHists,histErr):
 
 
 def removeSmallContours(contours,smin=(100,100)):
+    """Filter out contours whose bounding rect is smaller than smin."""
     contoursFiltered = []
     wmin,hmin = smin
     for c in contours:
@@ -112,6 +137,7 @@ def removeSmallContours(contours,smin=(100,100)):
 
 
 def shapeDetectionRoutine(contours,err):
+    """Detect canonical shapes and return bounding rectangles for non-unknowns."""
 
 
     # detectedShapes = {}
@@ -140,6 +166,7 @@ def shapeDetectionRoutine(contours,err):
     return boundingRects
 
 def machineLearningPredicitonRoutine(imgIn,boundingRects):
+    """Run one-vs-rest SVM on cropped regions of interest and return labels."""
 
     if len(boundingRects)==0:
         return []
@@ -153,6 +180,7 @@ def machineLearningPredicitonRoutine(imgIn,boundingRects):
 
 
 def drawLabels(imgIn,boundingRects,labels):
+    """Draw predicted labels and bounding boxes on a copy of the input image."""
     assert(len(boundingRects)==len(labels))
     img_labels = np.copy(imgIn)
 
@@ -166,11 +194,11 @@ def drawLabels(imgIn,boundingRects,labels):
 
 
 
-cap = cv.VideoCapture(0) #opens the webcam if exists
+cap = cv.VideoCapture(0) # opens the webcam if exists
 
 
 for i in range(3600): #show up to 3600 frames
-     _,img = cap.read() #read from webcam
+     _,img = cap.read() # read from webcam
      imggr = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
      imggr = cv.GaussianBlur(imggr, G_GAUSSIAN_KERN_SIZE, G_GAUSSIAN_STD_DEV)
      edges = cv.Canny(imggr, G_CANNY_MIN, G_CANNY_MAX)

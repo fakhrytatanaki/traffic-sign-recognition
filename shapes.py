@@ -1,3 +1,9 @@
+"""Shape utilities for generating canonical traffic sign contours.
+
+Provides helpers to generate regular polygons (triangle, square, octagon)
+and a dense circle approximation, as well as utilities to subdivide edges
+and compute radial distance patterns for contour matching.
+"""
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -7,6 +13,15 @@ import json
 vecNorm = lambda x,y=0:np.sqrt(np.sum((x-y)**2))
 
 def subdivide(polygonPoints,divisions):
+    """Subdivide each edge of a polygon into equal segments.
+
+    Parameters:
+    	polygonPoints: ndarray of shape (N, 2) of ordered polygon vertices.
+    	divisions: Number of segments per polygon edge.
+
+    Returns:
+    	ndarray of shape (N*divisions, 2) with interpolated points.
+    """
     n=polygonPoints.shape[0]
     res = np.zeros(shape=(n*divisions,polygonPoints.shape[1]),dtype=polygonPoints.dtype)
 
@@ -18,9 +33,16 @@ def subdivide(polygonPoints,divisions):
     return res
     
 def generateRegularPolygonInt(nsides,angleOffset=0,r=300):
-    #generates integer coordinates of a regular polygon with a given side length (r)
-    #nsides : number of sides
-    #angleOffset : rotation of the shape
+    """Generate integer coordinates for a regular polygon.
+
+    Parameters:
+    	nsides: Number of polygon sides.
+    	angleOffset: Rotation offset in radians.
+    	r: Radius used to scale coordinates before integer casting.
+
+    Returns:
+    	ndarray of shape (nsides+1, 2) closing the polygon.
+    """
 
     coords = np.zeros((nsides+1,2),dtype=np.int32)
 
@@ -30,9 +52,15 @@ def generateRegularPolygonInt(nsides,angleOffset=0,r=300):
     return coords;
 
 def generateRegularPolygon(nsides,angleOffset=0):
-    #generates coordinates of a regular polygon
-    #nsides : number of sides
-    #angleOffset : rotation of the shape
+    """Generate float coordinates for a regular polygon on the unit circle.
+
+    Parameters:
+    	nsides: Number of polygon sides.
+    	angleOffset: Rotation offset in radians.
+
+    Returns:
+    	ndarray of shape (nsides+1, 2) closing the polygon.
+    """
 
     coords = np.zeros((nsides+1,2))
 
@@ -42,7 +70,7 @@ def generateRegularPolygon(nsides,angleOffset=0):
     return coords;
 
 def getShapes():
-    #generate common shapes found in traffic signs
+    """Return canonical contour templates for common traffic sign shapes."""
     shapes = {
             'triangle' : generateRegularPolygonInt(3,-np.pi/6),
             'circle' : generateRegularPolygonInt(720),
@@ -56,7 +84,10 @@ def getShapes():
 
 
 def getShapePattern(coords,divisions):
-    #coordinates are assumed to be ordered such that they complete a cyclic shape (i.e. triangle)
+    """Compute radial-distance signature sampled along a closed contour.
+
+    Assumes `coords` are ordered to complete a cyclic shape (e.g., triangle).
+    """
 
     n = len(coords)
     steps = int(np.ceil(divisions/n))

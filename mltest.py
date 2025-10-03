@@ -1,3 +1,8 @@
+"""Baseline binary SVM example: stop vs. not-stop classification.
+
+This script demonstrates data loading, shuffling, splitting, training a
+linear SVM using OpenCV's ML API, and reporting accuracy.
+"""
 import numpy as np
 import cv2 as cv
 from glob import glob
@@ -6,7 +11,7 @@ import matplotlib.pyplot as plt
 IMAGE_DATA_DIMENSIONS=(512,512)
 
 def loadTrainingData(imageFiles,label):
-    #loads a training data that belongs to one class
+    """Load images, convert to grayscale, resize, flatten, and label uniformly."""
 
     trainingData = [cv.cvtColor(cv.imread(f),cv.COLOR_BGR2GRAY) for f in imageFiles]
 
@@ -16,6 +21,7 @@ def loadTrainingData(imageFiles,label):
     return trainingData,labels
 
 def trainTestSplit(data,percentageTrain):
+    """Split an array into train and test partitions by percentage."""
     n = len(data)
     nTrain = int(n*(percentageTrain/100))
     return np.copy(data[:nTrain]), np.copy(data[nTrain:n])
@@ -23,6 +29,7 @@ def trainTestSplit(data,percentageTrain):
 
 
 def shuffleData(data,labels,labelType=np.int32):
+    """Shuffle data and labels together and return shuffled copies."""
     toShuffle = np.concatenate((data,labels.reshape(-1,1)),axis=1) 
     np.random.shuffle(toShuffle)
     data_shuffled = np.array(toShuffle[:,:-1],dtype=np.float32)
@@ -30,6 +37,7 @@ def shuffleData(data,labels,labelType=np.int32):
     return data_shuffled,label_shuffled
 
 def calcAccuracy(yTest,yReal):
+    """Compute accuracy (percent) between predictions and ground truth."""
     assert(len(yTest)==len(yReal))
 
     correct = 0
@@ -46,7 +54,8 @@ def calcAccuracy(yTest,yReal):
 
 
 stopData,stopLabels = loadTrainingData(glob('./dataset/stop/*.png'),1) 
-notStopData,notStopLabels = loadTrainingData(glob('./dataset/[!stop]*/*.png'),-1) #anything other than stop
+# Treat everything outside the 'stop' directory as negative samples
+notStopData,notStopLabels = loadTrainingData(glob('./dataset/[!stop]*/*.png'),-1) # anything other than stop
 
 data = np.concatenate((stopData,notStopData))
 labels = np.concatenate((stopLabels,notStopLabels))
